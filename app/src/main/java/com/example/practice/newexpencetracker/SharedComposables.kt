@@ -14,6 +14,35 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
+import com.example.practice.newexpencetracker.IncomeExpensesChart
+import com.example.practice.newexpencetracker.MonthStat
+import android.content.Intent
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+import kotlin.jvm.java
+
+@Composable
+fun OpenChartButton(modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    Button(
+        onClick = { ctx.startActivity(Intent(ctx, ChartActivity::class.java)) },
+        modifier = modifier
+    ) { Text("View Income/Expenses Chart") }
+}
+
+
+@Composable
+fun ChartDemoSection() {
+    val sample = listOf(
+        MonthStat("Aug", 1200f, 900f),
+        MonthStat("Sep", 1350f, 1100f),
+        MonthStat("Oct", 980f, 1060f),
+        MonthStat("Nov", 1500f, 950f),
+    )
+    IncomeExpensesChart(stats = sample)
+}
 
 // ---------- Models ----------
 data class ExpenseSheet(
@@ -103,16 +132,21 @@ fun AddExpenseDialogSimple(
 fun ExpensesSection(sheet: ExpenseSheet) {
     var showDialog by remember { mutableStateOf(false) }
 
-    val totalExpenses = sheet.expenses.sumOf { it.amount }
-    Text(
-        text = "Surplus/Deficit: €${"%.2f".format(sheet.incomeState - totalExpenses)}",
-        style = MaterialTheme.typography.titleMedium
-    )
+    Text(text = "Expenses:", style = MaterialTheme.typography.titleMedium)
+    Spacer(Modifier.height(8.dp))
 
-    Spacer(modifier = Modifier.height(16.dp))
+    Button(onClick = { showDialog = true }) { Text("Add Expense") }
+    Spacer(Modifier.height(12.dp))
 
-    ExpensesSection(sheet)
-
+    if (sheet.expenses.isEmpty()) {
+        Text("No expenses added yet.", style = MaterialTheme.typography.bodyMedium)
+    } else {
+        LazyColumn {
+            items(items = sheet.expenses, key = { it.id }) { expense ->
+                ExpenseRow(expense)
+            }
+        }
+    }
 
     if (showDialog) {
         AddExpenseDialogSimple(
@@ -125,6 +159,7 @@ fun ExpensesSection(sheet: ExpenseSheet) {
         )
     }
 }
+
 
 // ---------- Income Display ----------
 @Composable

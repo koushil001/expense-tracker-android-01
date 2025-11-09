@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import com.example.practice.newexpencetracker.ui.theme.NewExpencetrackerTheme
 
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
