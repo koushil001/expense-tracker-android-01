@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.practice.newexpencetracker.ui.theme.NewExpencetrackerTheme
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
@@ -49,6 +53,7 @@ sealed class Screen {
 }
 
 /* ---------- App root ---------- */
+@OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ExpenseTrackerApp(modifier: Modifier = Modifier) {
@@ -64,8 +69,16 @@ fun ExpenseTrackerApp(modifier: Modifier = Modifier) {
     }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("ExpenseTracker") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+        },
         floatingActionButton = {
-            // Show FAB only on the list screen; it opens the create-sheet screen
             if (currentScreen is Screen.SheetsList) {
                 FloatingActionButton(onClick = { currentScreen = Screen.CreateSheet }) {
                     Icon(imageVector = Icons.Default.Add, contentDescription = "Add Sheet")
@@ -96,3 +109,4 @@ fun ExpenseTrackerApp(modifier: Modifier = Modifier) {
         }
     }
 }
+

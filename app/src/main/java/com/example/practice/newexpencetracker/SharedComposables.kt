@@ -22,27 +22,31 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import kotlin.jvm.java
+import android.content.Intent
 
-//@Composable
-//fun OpenChartButton(modifier: Modifier = Modifier) {
-//    val ctx = LocalContext.current
-//    Button(
-//        onClick = { ctx.startActivity(Intent(ctx, ChartActivity::class.java)) },
-//        modifier = modifier
-//    ) { Text("View Income/Expenses Chart") }
-//}
-//
-//
-//@Composable
-//fun ChartDemoSection() {
-//    val sample = listOf(
-//        MonthStat("Aug", 1200f, 900f),
-//        MonthStat("Sep", 1350f, 1100f),
-//        MonthStat("Oct", 980f, 1060f),
-//        MonthStat("Nov", 1500f, 950f),
-//    )
-//    IncomeExpensesChart(stats = sample)
-//}
+import androidx.compose.ui.platform.LocalContext
+
+
+@Composable
+fun OpenChartButton(modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    Button(
+        onClick = { ctx.startActivity(Intent(ctx, ChartActivity::class.java)) },
+        modifier = modifier
+    ) { Text("View Income/Expenses Chart") }
+}
+
+
+@Composable
+fun ChartDemoSection() {
+    val sample = listOf(
+        MonthStat("Aug", 1200f, 900f),
+        MonthStat("Sep", 1350f, 1100f),
+        MonthStat("Oct", 980f, 1060f),
+        MonthStat("Nov", 1500f, 950f),
+    )
+    IncomeExpensesChart(stats = sample)
+}
 
 // ---------- Models ----------
 data class ExpenseSheet(
@@ -239,6 +243,13 @@ fun SheetsList(
     LazyColumn(modifier = Modifier
         .fillMaxSize()
         .padding(16.dp)) {
+
+        item {
+            OpenChartButton()
+            Spacer(Modifier.height(16.dp))
+        }
+
+
         items(sheets) { sheet ->
             Card(
                 modifier = Modifier
