@@ -42,7 +42,7 @@ fun IncomeExpensesChartScreen(onClose: () -> Unit) {
     val sampleStats = listOf(
         MonthStat("Aug", 1200f, 900f),
         MonthStat("Sep", 1350f, 1100f),
-        MonthStat("Oct", 980f, 1060f),
+        MonthStat("Oct", 980f, 960f),
         MonthStat("Nov", 1500f, 950f),
     )
 

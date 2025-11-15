@@ -23,6 +23,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import kotlin.jvm.java
 import android.content.Intent
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
+
 
 import androidx.compose.ui.platform.LocalContext
 
@@ -61,13 +64,17 @@ data class ExpenseSheet(
 
 data class Expense(
     val id: Int,
-    val name: String,
-    val amount: Double
+    var name: String,
+    var amount: Double
 )
 
 // ===== Expenses UI (LazyList + Add dialog) =====
 @Composable
-fun ExpenseRow(expense: Expense) {
+fun ExpenseRow(
+    expense: Expense,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -80,8 +87,25 @@ fun ExpenseRow(expense: Expense) {
                 .padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(expense.name, style = MaterialTheme.typography.titleSmall)
-            Text("€${"%.2f".format(expense.amount)}")
+            Column {
+                Text(expense.name, style = MaterialTheme.typography.titleSmall)
+                Text("€${"%.2f".format(expense.amount)}")
+            }
+
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit expense"
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete expense"
+                    )
+                }
+            }
         }
     }
 }
@@ -89,11 +113,14 @@ fun ExpenseRow(expense: Expense) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddExpenseDialogSimple(
+    initialName: String = "",
+    initialAmount: String = "",
+    isEditing: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (name: String, amount: Double) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var amountText by remember { mutableStateOf("") }
+    var name by remember(initialName) { mutableStateOf(initialName) }
+    var amountText by remember(initialAmount) { mutableStateOf(initialAmount) }
     var error by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
@@ -102,13 +129,21 @@ fun AddExpenseDialogSimple(
             TextButton(onClick = {
                 error = null
                 val amt = amountText.toDoubleOrNull()
-                if (name.isBlank()) { error = "Please enter a name."; return@TextButton }
-                if (amt == null || amt < 0.0) { error = "Enter a valid amount (≥ 0)."; return@TextButton }
+                if (name.isBlank()) {
+                    error = "Please enter a name."
+                    return@TextButton
+                }
+                if (amt == null || amt < 0.0) {
+                    error = "Enter a valid amount (≥ 0)."
+                    return@TextButton
+                }
                 onSave(name.trim(), amt)
-            }) { Text("Save") }
+            }) {
+                Text(if (isEditing) "Update" else "Save")
+            }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Add Expense") },
+        title = { Text(if (isEditing) "Edit Expense" else "Add Expense") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -120,7 +155,9 @@ fun AddExpenseDialogSimple(
                 )
                 OutlinedTextField(
                     value = amountText,
-                    onValueChange = { amountText = it.filter { c -> c.isDigit() || c == '.' }.take(12) },
+                    onValueChange = {
+                        amountText = it.filter { c -> c.isDigit() || c == '.' }.take(12)
+                    },
                     label = { Text("Amount (€)") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -132,14 +169,22 @@ fun AddExpenseDialogSimple(
     )
 }
 
+
 @Composable
 fun ExpensesSection(sheet: ExpenseSheet) {
     var showDialog by remember { mutableStateOf(false) }
+    var editingExpense by remember { mutableStateOf<Expense?>(null) }
 
     Text(text = "Expenses:", style = MaterialTheme.typography.titleMedium)
     Spacer(Modifier.height(8.dp))
 
-    Button(onClick = { showDialog = true }) { Text("Add Expense") }
+    Button(onClick = {
+        editingExpense = null   // we are adding a new expense
+        showDialog = true
+    }) {
+        Text("Add Expense")
+    }
+
     Spacer(Modifier.height(12.dp))
 
     if (sheet.expenses.isEmpty()) {
@@ -147,22 +192,45 @@ fun ExpensesSection(sheet: ExpenseSheet) {
     } else {
         LazyColumn {
             items(items = sheet.expenses, key = { it.id }) { expense ->
-                ExpenseRow(expense)
+                ExpenseRow(
+                    expense = expense,
+                    onEdit = {
+                        editingExpense = expense
+                        showDialog = true
+                    },
+                    onDelete = {
+                        sheet.expenses.remove(expense)
+                    }
+                )
             }
         }
     }
 
     if (showDialog) {
+        val exp = editingExpense
         AddExpenseDialogSimple(
+            initialName = exp?.name ?: "",
+            initialAmount = exp?.amount?.toString() ?: "",
+            isEditing = exp != null,
             onDismiss = { showDialog = false },
             onSave = { name, amount ->
-                val nextId = (sheet.expenses.maxOfOrNull { it.id } ?: 0) + 1
-                sheet.expenses.add(Expense(id = nextId, name = name, amount = amount))
+                if (exp == null) {
+                    // Add new expense
+                    val nextId = (sheet.expenses.maxOfOrNull { it.id } ?: 0) + 1
+                    sheet.expenses.add(
+                        Expense(id = nextId, name = name, amount = amount)
+                    )
+                } else {
+                    // Edit existing expense
+                    exp.name = name
+                    exp.amount = amount
+                }
                 showDialog = false
             }
         )
     }
 }
+
 
 
 // ---------- Income Display ----------
