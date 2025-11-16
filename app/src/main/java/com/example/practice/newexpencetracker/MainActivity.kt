@@ -26,6 +26,9 @@ import com.example.practice.newexpencetracker.ui.theme.NewExpencetrackerTheme
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
@@ -59,25 +62,31 @@ sealed class Screen {
 fun ExpenseTrackerApp(modifier: Modifier = Modifier) {
     var currentScreen by remember { mutableStateOf<Screen>(Screen.SheetsList) }
 
-    // App state: keep sheets here
-    val sheets = remember {
-        mutableStateListOf(
-            ExpenseSheet(1, "August", 2025, 1200.0),
-            ExpenseSheet(2, "September", 2025, 1500.0),
-            ExpenseSheet(3, "October", 2025, 1100.0)
-        )
+    val context = LocalContext.current
+    val sheets = remember { mutableStateListOf<ExpenseSheet>() }
+
+    // Load from SQLite once when app starts
+    LaunchedEffect(Unit) {
+        val db = database(context)
+        val loaded = db.getAllSheetsWithExpenses()
+
+        if (loaded.isEmpty()) {
+            // Optional: seed initial data if DB is empty
+            val initial = listOf(
+                ExpenseSheet(1, "August", 2025, 1200.0),
+                ExpenseSheet(2, "September", 2025, 1500.0),
+                ExpenseSheet(3, "October", 2025, 1100.0)
+            )
+            initial.forEach { db.insertSheet(it) }
+            sheets.clear()
+            sheets.addAll(initial)
+        } else {
+            sheets.clear()
+            sheets.addAll(loaded)
+        }
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("ExpenseTracker") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            )
-        },
         floatingActionButton = {
             if (currentScreen is Screen.SheetsList) {
                 FloatingActionButton(onClick = { currentScreen = Screen.CreateSheet }) {
@@ -92,16 +101,26 @@ fun ExpenseTrackerApp(modifier: Modifier = Modifier) {
                     sheets = sheets,
                     onSheetClick = { sheet -> currentScreen = Screen.SheetDetail(sheet) }
                 )
+
                 is Screen.SheetDetail -> SheetDetailScreen(
                     sheet = s.sheet,
                     onBack = { currentScreen = Screen.SheetsList }
                 )
+
                 is Screen.CreateSheet -> CreateSheetScreen(
                     existing = sheets,
                     onCancel = { currentScreen = Screen.SheetsList },
                     onCreate = { month, year ->
                         val nextId = (sheets.maxOfOrNull { it.id } ?: 0) + 1
-                        sheets.add(ExpenseSheet(nextId, month, year, income = 0.0))
+                        val newSheet = ExpenseSheet(nextId, month, year, income = 0.0)
+
+                        // Update in-memory list
+                        sheets.add(newSheet)
+
+                        // Save to DB
+                        val db = database(context)
+                        db.insertSheet(newSheet)
+
                         currentScreen = Screen.SheetsList
                     }
                 )
@@ -109,4 +128,5 @@ fun ExpenseTrackerApp(modifier: Modifier = Modifier) {
         }
     }
 }
+
 

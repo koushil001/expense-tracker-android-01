@@ -172,6 +172,9 @@ fun AddExpenseDialogSimple(
 
 @Composable
 fun ExpensesSection(sheet: ExpenseSheet) {
+    val context = LocalContext.current
+    val db = remember { database(context) }
+
     var showDialog by remember { mutableStateOf(false) }
     var editingExpense by remember { mutableStateOf<Expense?>(null) }
 
@@ -179,7 +182,7 @@ fun ExpensesSection(sheet: ExpenseSheet) {
     Spacer(Modifier.height(8.dp))
 
     Button(onClick = {
-        editingExpense = null   // we are adding a new expense
+        editingExpense = null   // adding new expense
         showDialog = true
     }) {
         Text("Add Expense")
@@ -199,7 +202,10 @@ fun ExpensesSection(sheet: ExpenseSheet) {
                         showDialog = true
                     },
                     onDelete = {
+                        // Remove from memory
                         sheet.expenses.remove(expense)
+                        // Remove from DB
+                        db.deleteExpense(expense.id)
                     }
                 )
             }
@@ -215,15 +221,21 @@ fun ExpensesSection(sheet: ExpenseSheet) {
             onDismiss = { showDialog = false },
             onSave = { name, amount ->
                 if (exp == null) {
-                    // Add new expense
+                    // New expense
                     val nextId = (sheet.expenses.maxOfOrNull { it.id } ?: 0) + 1
-                    sheet.expenses.add(
-                        Expense(id = nextId, name = name, amount = amount)
-                    )
+                    val newExpense = Expense(id = nextId, name = name, amount = amount)
+
+                    // In memory
+                    sheet.expenses.add(newExpense)
+                    // In DB
+                    db.insertExpense(sheet.id, newExpense)
                 } else {
-                    // Edit existing expense
+                    // Edit existing
                     exp.name = name
                     exp.amount = amount
+
+                    // Update DB
+                    db.updateExpense(exp)
                 }
                 showDialog = false
             }
@@ -236,11 +248,15 @@ fun ExpensesSection(sheet: ExpenseSheet) {
 // ---------- Income Display ----------
 @Composable
 fun IncomeDisplay(
+    sheetId: Int,
     income: Double,
     onIncomeChange: (Double) -> Unit,
     onDone: () -> Unit
 ) {
-    var incomeText by remember(income) { mutableStateOf(income.toString()) }
+    val context = LocalContext.current
+    var incomeText by remember(income) {
+        mutableStateOf(if (income == 0.0) "" else income.toString())
+    }
 
     Row(
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
@@ -258,8 +274,15 @@ fun IncomeDisplay(
 
         IconButton(onClick = {
             val newIncome = incomeText.toDoubleOrNull() ?: 0.0
+
+            // Update in-memory state
             onIncomeChange(newIncome)
-            onDone() // ✅ go back after updating
+
+            // Save to SQLite
+            val db = database(context)
+            db.updateSheetIncome(sheetId, newIncome)
+
+            onDone()
         }) {
             Icon(
                 imageVector = Icons.Default.Check,
@@ -268,6 +291,7 @@ fun IncomeDisplay(
         }
     }
 }
+
 
 
 
@@ -280,6 +304,7 @@ fun SheetDetailScreen(sheet: ExpenseSheet, onBack: () -> Unit) {
         Spacer(modifier = Modifier.height(16.dp))
 
         IncomeDisplay(
+            sheetId = sheet.id,
             income = sheet.incomeState,
             onIncomeChange = { newIncome -> sheet.incomeState = newIncome },
             onDone = { onBack() }
@@ -295,7 +320,6 @@ fun SheetDetailScreen(sheet: ExpenseSheet, onBack: () -> Unit) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ✅ New Expense LazyList section
         ExpensesSection(sheet)
     }
 }
