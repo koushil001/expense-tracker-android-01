@@ -25,6 +25,18 @@ import kotlin.jvm.java
 import android.content.Intent
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.Delete
+
+
 
 
 import androidx.compose.ui.platform.LocalContext
@@ -63,10 +75,12 @@ data class ExpenseSheet(
 }
 
 data class Expense(
-    val id: Int,
+    var id: Int,
     var name: String,
-    var amount: Double
+    var amount: Double,
+    val date: String = ""   // store the date as text, e.g. "2025-11-16"
 )
+
 
 // ===== Expenses UI (LazyList + Add dialog) =====
 @Composable
@@ -90,7 +104,14 @@ fun ExpenseRow(
             Column {
                 Text(expense.name, style = MaterialTheme.typography.titleSmall)
                 Text("€${"%.2f".format(expense.amount)}")
+                if (expense.date.isNotBlank()) {
+                    Text(
+                        "Date: ${expense.date}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
+
 
             Row {
                 IconButton(onClick = onEdit) {
@@ -181,11 +202,34 @@ fun ExpensesSection(sheet: ExpenseSheet) {
     Text(text = "Expenses:", style = MaterialTheme.typography.titleMedium)
     Spacer(Modifier.height(8.dp))
 
-    Button(onClick = {
-        editingExpense = null   // adding new expense
-        showDialog = true
-    }) {
-        Text("Add Expense")
+    // Row with "Add Expense" and "Delete All" for the month
+    Row {
+        Button(
+            onClick = {
+                editingExpense = null   // adding new expense
+                showDialog = true
+            }
+        ) {
+            Text("Add Expense")
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        OutlinedButton(
+            onClick = {
+                // Delete all expenses for this month (sheet)
+                if (sheet.expenses.isNotEmpty()) {
+                    // First delete from DB
+                    sheet.expenses.toList().forEach { expense ->
+                        db.deleteExpense(expense.id)
+                    }
+                    // Then clear in-memory list
+                    sheet.expenses.clear()
+                }
+            }
+        ) {
+            Text("Delete All Expenses")
+        }
     }
 
     Spacer(Modifier.height(12.dp))
@@ -221,16 +265,27 @@ fun ExpensesSection(sheet: ExpenseSheet) {
             onDismiss = { showDialog = false },
             onSave = { name, amount ->
                 if (exp == null) {
-                    // New expense
-                    val nextId = (sheet.expenses.maxOfOrNull { it.id } ?: 0) + 1
-                    val newExpense = Expense(id = nextId, name = name, amount = amount)
+                    // 🔹 New expense
+                    val today = java.text.SimpleDateFormat(
+                        "yyyy-MM-dd",
+                        java.util.Locale.getDefault()
+                    ).format(java.util.Date())
 
-                    // In memory
-                    sheet.expenses.add(newExpense)
-                    // In DB
+                    // id = 0 for now, DB will assign real id
+                    val newExpense = Expense(
+                        id = 0,
+                        name = name,
+                        amount = amount,
+                        date = today
+                    )
+
+                    // Insert into DB first so it gets a real id
                     db.insertExpense(sheet.id, newExpense)
+
+                    // Now add to in-memory list (id is updated inside insertExpense)
+                    sheet.expenses.add(newExpense)
                 } else {
-                    // Edit existing
+                    // 🔹 Edit existing
                     exp.name = name
                     exp.amount = amount
 
@@ -242,8 +297,6 @@ fun ExpensesSection(sheet: ExpenseSheet) {
         )
     }
 }
-
-
 
 // ---------- Income Display ----------
 @Composable
@@ -330,28 +383,55 @@ fun SheetDetailScreen(sheet: ExpenseSheet, onBack: () -> Unit) {
 @Composable
 fun SheetsList(
     sheets: List<ExpenseSheet>,
-    onSheetClick: (ExpenseSheet) -> Unit
+    onSheetClick: (ExpenseSheet) -> Unit,
+    onDeleteSheet: (ExpenseSheet) -> Unit
 ) {
-    LazyColumn(modifier = Modifier
-        .fillMaxSize()
-        .padding(16.dp)) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
 
+        // Top chart button
         item {
             OpenChartButton()
             Spacer(Modifier.height(16.dp))
         }
-
 
         items(sheets) { sheet ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 6.dp)
+                    // ✅ tap anywhere on the card (except bin) to open the sheet
                     .clickable { onSheetClick(sheet) },
                 elevation = CardDefaults.cardElevation(6.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("${sheet.month} ${sheet.year}", style = MaterialTheme.typography.titleMedium)
+
+                    // Top row: month/year + bin icon
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${sheet.month} ${sheet.year}",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        IconButton(
+                            onClick = { onDeleteSheet(sheet) }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete month sheet"
+                            )
+                        }
+                    }
+
+                    // Income / surplus
                     Text("Income: €${sheet.incomeState}")
                     val totalExpenses = sheet.expenses.sumOf { it.amount }
                     Text("Surplus/Deficit: €${sheet.incomeState - totalExpenses}")
@@ -360,6 +440,8 @@ fun SheetsList(
         }
     }
 }
+
+
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -374,26 +456,39 @@ fun CreateSheetScreen(
         "July","August","September","October","November","December"
     )
 
+    // ✅ Default to current month & year
     val now = java.time.LocalDate.now()
     var month by remember { mutableStateOf(months[now.monthValue - 1]) }
     var expanded by remember { mutableStateOf(false) }
     var yearText by remember { mutableStateOf(now.year.toString()) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
         Text("Create New Sheet", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(16.dp))
 
-        // Month dropdown
-        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+        // Month dropdown (pre-filled with current month)
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded }
+        ) {
             OutlinedTextField(
                 value = month,
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Month") },
-                modifier = Modifier.menuAnchor().fillMaxWidth()
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth()
             )
-            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
                 months.forEach {
                     DropdownMenuItem(
                         text = { Text(it) },
@@ -408,7 +503,7 @@ fun CreateSheetScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // Year input
+        // Year input (pre-filled with current year)
         OutlinedTextField(
             value = yearText,
             onValueChange = { yearText = it.filter { ch -> ch.isDigit() }.take(4) },
@@ -436,11 +531,13 @@ fun CreateSheetScreen(
                     error = "Enter a valid year (1900–2100)."
                     return@Button
                 }
+
                 val duplicate = existing.any { it.month == month && it.year == year }
                 if (duplicate) {
                     error = "A sheet for $month $year already exists."
                     return@Button
                 }
+
                 onCreate(month, year)
             }) {
                 Text("Create")
@@ -448,5 +545,3 @@ fun CreateSheetScreen(
         }
     }
 }
-
-

@@ -1,13 +1,12 @@
 package com.example.practice.newexpencetracker
 
-
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
 class database(context: Context) :
-    SQLiteOpenHelper(context, "expense_tracker.db", null, 1) {
+    SQLiteOpenHelper(context, "expense_tracker.db", null, 3) {   // ⬅ bumped version to 3
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -24,10 +23,11 @@ class database(context: Context) :
         db.execSQL(
             """
             CREATE TABLE expenses(
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 sheet_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 amount REAL NOT NULL,
+                date TEXT NOT NULL,
                 FOREIGN KEY(sheet_id) REFERENCES sheets(id) ON DELETE CASCADE
             );
             """.trimIndent()
@@ -71,7 +71,7 @@ class database(context: Context) :
         val list = mutableListOf<Expense>()
 
         val cursor = db.rawQuery(
-            "SELECT id, name, amount FROM expenses WHERE sheet_id = ?",
+            "SELECT id, name, amount, date FROM expenses WHERE sheet_id = ?",
             arrayOf(sheetId.toString())
         )
 
@@ -80,7 +80,8 @@ class database(context: Context) :
                 val id = it.getInt(0)
                 val name = it.getString(1)
                 val amount = it.getDouble(2)
-                list.add(Expense(id = id, name = name, amount = amount))
+                val date = it.getString(3)
+                list.add(Expense(id = id, name = name, amount = amount, date = date))
             }
         }
         return list
@@ -107,17 +108,29 @@ class database(context: Context) :
         db.update("sheets", values, "id = ?", arrayOf(sheetId.toString()))
     }
 
+    fun deleteSheet(sheetId: Int) {
+        val db = writableDatabase
+        // delete all expenses for that sheet
+        db.delete("expenses", "sheet_id = ?", arrayOf(sheetId.toString()))
+        // delete the sheet itself
+        db.delete("sheets", "id = ?", arrayOf(sheetId.toString()))
+    }
+
     // ---------- EXPENSES CRUD ----------
 
     fun insertExpense(sheetId: Int, expense: Expense) {
         val db = writableDatabase
         val values = ContentValues().apply {
-            put("id", expense.id)
+            // Don't put "id" here: SQLite will auto-generate it
             put("sheet_id", sheetId)
             put("name", expense.name)
             put("amount", expense.amount)
+            put("date", expense.date)
         }
-        db.insert("expenses", null, values)
+        val newId = db.insert("expenses", null, values)
+        if (newId != -1L) {
+            expense.id = newId.toInt()   // assumes Expense.id is var
+        }
     }
 
     fun updateExpense(expense: Expense) {
@@ -125,6 +138,7 @@ class database(context: Context) :
         val values = ContentValues().apply {
             put("name", expense.name)
             put("amount", expense.amount)
+            put("date", expense.date)
         }
         db.update("expenses", values, "id = ?", arrayOf(expense.id.toString()))
     }

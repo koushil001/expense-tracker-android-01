@@ -29,7 +29,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 
-
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,7 +39,6 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // FAB and navigation state now live inside this composable
                     ExpenseTrackerApp()
                 }
             }
@@ -48,14 +46,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/* ---------- Navigation screens (top-level, not inside a composable) ---------- */
 sealed class Screen {
     object SheetsList : Screen()
     data class SheetDetail(val sheet: ExpenseSheet) : Screen()
     object CreateSheet : Screen()
 }
 
-/* ---------- App root ---------- */
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -65,13 +61,10 @@ fun ExpenseTrackerApp(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val sheets = remember { mutableStateListOf<ExpenseSheet>() }
 
-    // Load from SQLite once when app starts
     LaunchedEffect(Unit) {
         val db = database(context)
         val loaded = db.getAllSheetsWithExpenses()
-
         if (loaded.isEmpty()) {
-            // Optional: seed initial data if DB is empty
             val initial = listOf(
                 ExpenseSheet(1, "August", 2025, 1200.0),
                 ExpenseSheet(2, "September", 2025, 1500.0),
@@ -87,6 +80,17 @@ fun ExpenseTrackerApp(modifier: Modifier = Modifier) {
     }
 
     Scaffold(
+        topBar = {
+            if (currentScreen is Screen.SheetsList) {
+                TopAppBar(
+                    title = { Text("ExpenseTracker") },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                )
+            }
+        },
         floatingActionButton = {
             if (currentScreen is Screen.SheetsList) {
                 FloatingActionButton(onClick = { currentScreen = Screen.CreateSheet }) {
@@ -99,7 +103,14 @@ fun ExpenseTrackerApp(modifier: Modifier = Modifier) {
             when (val s = currentScreen) {
                 is Screen.SheetsList -> SheetsList(
                     sheets = sheets,
-                    onSheetClick = { sheet -> currentScreen = Screen.SheetDetail(sheet) }
+                    onSheetClick = { sheet ->
+                        currentScreen = Screen.SheetDetail(sheet)
+                    },
+                    onDeleteSheet = { sheet ->
+                        val db = database(context)
+                        db.deleteSheet(sheet.id)   // ✅ delete from DB
+                        sheets.remove(sheet)        // ✅ remove from in-memory list
+                    }
                 )
 
                 is Screen.SheetDetail -> SheetDetailScreen(
@@ -113,14 +124,9 @@ fun ExpenseTrackerApp(modifier: Modifier = Modifier) {
                     onCreate = { month, year ->
                         val nextId = (sheets.maxOfOrNull { it.id } ?: 0) + 1
                         val newSheet = ExpenseSheet(nextId, month, year, income = 0.0)
-
-                        // Update in-memory list
                         sheets.add(newSheet)
-
-                        // Save to DB
                         val db = database(context)
                         db.insertSheet(newSheet)
-
                         currentScreen = Screen.SheetsList
                     }
                 )
@@ -128,5 +134,3 @@ fun ExpenseTrackerApp(modifier: Modifier = Modifier) {
         }
     }
 }
-
-
