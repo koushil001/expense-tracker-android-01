@@ -116,6 +116,27 @@ class database(context: Context) :
         db.delete("sheets", "id = ?", arrayOf(sheetId.toString()))
     }
 
+    fun updateSheetDetails(sheetId: Int, newMonth: String, newYear: Int) {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put("month", newMonth)
+            put("year", newYear)
+        }
+        db.update("sheets", values, "id = ?", arrayOf(sheetId.toString()))
+    }
+
+
+
+    fun updateSheet(sheetId: Int, newMonth: String, newYear: Int) {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put("month", newMonth)
+            put("year", newYear)
+        }
+        db.update("sheets", values, "id = ?", arrayOf(sheetId.toString()))
+    }
+
+
     // ---------- EXPENSES CRUD ----------
 
     fun insertExpense(sheetId: Int, expense: Expense) {

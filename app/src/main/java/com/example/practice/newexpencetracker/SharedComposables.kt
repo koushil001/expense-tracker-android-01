@@ -71,8 +71,8 @@ fun ChartDemoSection() {
 
 data class ExpenseSheet(
     val id: Int,
-    val month: String,
-    val year: Int,
+    var month: String,
+    var year: Int,
     var income: Double = 0.0,
     val expenses: SnapshotStateList<Expense> = mutableStateListOf()
 ) {
@@ -352,12 +352,124 @@ fun IncomeDisplay(
 
 
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditSheetDialog(
+    sheet: ExpenseSheet,
+    onDismiss: () -> Unit,
+    onSave: (newMonth: String, newYear: Int) -> Unit
+) {
+    val months = listOf(
+        "January","February","March","April","May","June",
+        "July","August","September","October","November","December"
+    )
+
+    var month by remember { mutableStateOf(sheet.month) }
+    var expanded by remember { mutableStateOf(false) }
+    var yearText by remember { mutableStateOf(sheet.year.toString()) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Sheet") },
+        confirmButton = {
+            TextButton(onClick = {
+                val year = yearText.toIntOrNull()
+                if (year == null || year < 1900 || year > 2100) {
+                    error = "Enter a valid year (1900–2100)."
+                    return@TextButton
+                }
+
+                onSave(month, year)
+            }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
+                // Month dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
+                    OutlinedTextField(
+                        value = month,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Month") },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        months.forEach {
+                            DropdownMenuItem(
+                                text = { Text(it) },
+                                onClick = {
+                                    month = it
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Year input
+                OutlinedTextField(
+                    value = yearText,
+                    onValueChange = { yearText = it.filter { ch -> ch.isDigit() }.take(4) },
+                    label = { Text("Year") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (error != null) {
+                    Text(error!!, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    )
+}
+
+
+
 
 // ---------- Sheet Detail Screen ----------
 @Composable
 fun SheetDetailScreen(sheet: ExpenseSheet, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val db = remember { database(context) }
+
+    var showEditDialog by remember { mutableStateOf(false) }
+
     Column(modifier = Modifier.padding(16.dp)) {
-        Text(text = "${sheet.month} ${sheet.year}", style = MaterialTheme.typography.titleLarge)
+
+        // 🔹 Top row: month/year + edit icon
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            Text(
+                text = "${sheet.month} ${sheet.year}",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.weight(1f)
+            )
+
+            IconButton(onClick = { showEditDialog = true }) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Edit month/year"
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -380,7 +492,24 @@ fun SheetDetailScreen(sheet: ExpenseSheet, onBack: () -> Unit) {
 
         ExpensesSection(sheet)
     }
+
+    // 🔥 Show edit dialog when user taps edit icon
+    if (showEditDialog) {
+        EditSheetDialog(
+            sheet = sheet,
+            onDismiss = { showEditDialog = false },
+            onSave = { newMonth, newYear ->
+                // Update in DB
+                db.updateSheetDetails(sheet.id, newMonth, newYear)
+                // Update in memory so UI refreshes
+                sheet.month = newMonth
+                sheet.year = newYear
+                showEditDialog = false
+            }
+        )
+    }
 }
+
 
 
 
