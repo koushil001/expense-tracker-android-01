@@ -35,6 +35,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.mutableStateOf
+
 
 
 
@@ -64,13 +68,14 @@ fun ChartDemoSection() {
 }
 
 // ---------- Models ----------
+
 data class ExpenseSheet(
     val id: Int,
     val month: String,
     val year: Int,
     var income: Double = 0.0,
-    val expenses: MutableList<Expense> = mutableListOf()
-){
+    val expenses: SnapshotStateList<Expense> = mutableStateListOf()
+) {
     var incomeState by mutableStateOf(income)
 }
 
