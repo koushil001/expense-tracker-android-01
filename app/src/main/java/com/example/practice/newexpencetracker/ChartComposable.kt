@@ -1,20 +1,21 @@
 package com.example.practice.newexpencetracker
 
-
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import kotlin.math.max
 import kotlin.math.min
-import androidx.compose.ui.graphics.nativeCanvas
 
 // Represents one month of stats
 data class MonthStat(
@@ -28,8 +29,31 @@ fun IncomeExpensesChart(
     stats: List<MonthStat>,
     modifier: Modifier = Modifier
 ) {
-    // Use at most last 4 months
-    val lastStats = if (stats.size > 4) stats.takeLast(4) else stats
+    if (stats.isEmpty()) {
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Income/Expenses",
+                style = MaterialTheme.typography.titleLarge
+            )
+            Spacer(Modifier.height(8.dp))
+            Text("No data to display", style = MaterialTheme.typography.bodyMedium)
+        }
+        return
+    }
+
+    // We show at most 4 months at a time
+    val visibleCount = min(4, stats.size)
+
+    // Which "window" of the list is currently visible
+    var startIndex by remember(stats) {
+        mutableStateOf(stats.size - visibleCount) // start with last 4
+    }
+
+    val maxStart = (stats.size - visibleCount).coerceAtLeast(0)
 
     Column(
         modifier = modifier
@@ -44,14 +68,33 @@ fun IncomeExpensesChart(
 
         Spacer(Modifier.height(8.dp))
 
-        // Square chart area
+        // Square chart area with drag
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f) // square aspect ratio
+                .pointerInput(stats, visibleCount) {
+                    detectDragGestures { _, dragAmount ->
+                        val threshold = 40f // how far to drag before we move one month
+
+                        if (dragAmount.x < -threshold && startIndex < maxStart) {
+                            // drag left -> move to later months
+                            startIndex++
+                        } else if (dragAmount.x > threshold && startIndex > 0) {
+                            // drag right -> move to earlier months
+                            startIndex--
+                        }
+                    }
+                }
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                if (lastStats.isEmpty()) return@Canvas
+                // visible slice of all stats
+                val visibleStats = stats.subList(
+                    startIndex,
+                    startIndex + visibleCount
+                )
+
+                if (visibleStats.isEmpty()) return@Canvas
 
                 // chart padding inside the square
                 val paddingLeft = 80f
@@ -69,7 +112,7 @@ fun IncomeExpensesChart(
                 // Max value for scaling
                 val maxAmount = max(
                     1f,
-                    lastStats.flatMap { listOf(it.income, it.expenses) }.maxOrNull() ?: 1f
+                    visibleStats.flatMap { listOf(it.income, it.expenses) }.maxOrNull() ?: 1f
                 )
 
                 // --- Draw axes ---
@@ -118,7 +161,7 @@ fun IncomeExpensesChart(
 
                 // --- Calculate points ---
 
-                val count = lastStats.size
+                val count = visibleStats.size
                 val stepX = if (count > 1) width / (count - 1) else 0f
 
                 fun toPoint(index: Int, value: Float): Offset {
@@ -128,10 +171,10 @@ fun IncomeExpensesChart(
                     return Offset(x, y)
                 }
 
-                val incomePoints = lastStats.mapIndexed { index, item ->
+                val incomePoints = visibleStats.mapIndexed { index, item ->
                     toPoint(index, item.income)
                 }
-                val expensePoints = lastStats.mapIndexed { index, item ->
+                val expensePoints = visibleStats.mapIndexed { index, item ->
                     toPoint(index, item.expenses)
                 }
 
@@ -185,12 +228,19 @@ fun IncomeExpensesChart(
                     textAlign = android.graphics.Paint.Align.CENTER
                 }
 
-                lastStats.forEachIndexed { index, item ->
+                visibleStats.forEachIndexed { index, item ->
                     val x = paddingLeft + stepX * index
                     val y = origin.y + 40f
                     nativeCanvas.drawText(item.monthLabel, x, y, textPaintX)
                 }
             }
         }
+
+        // 🔹 New hint text so user/marker knows about drag
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Drag left/right on the chart to scroll between months.",
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 }

@@ -25,15 +25,8 @@ class ChartActivity : ComponentActivity() {
         val db = database(this)
         val sheets = db.getAllSheetsWithExpenses()
 
-        // Take the last 4 "months" (sheets)
-        val lastSheets = if (sheets.size > 4) {
-            sheets.takeLast(4)
-        } else {
-            sheets
-        }
-
-        // Convert to MonthStat for the chart
-        val stats = lastSheets.map { sheet ->
+        // ✅ Use ALL sheets; chart itself will show 4-at-a-time and scroll
+        val stats = sheets.map { sheet ->
             val totalExpenses = sheet.expenses.sumOf { it.amount }
             MonthStat(
                 monthLabel = sheet.month.take(3),          // e.g. "August" -> "Aug"
