@@ -1,4 +1,5 @@
 package com.example.practice.newexpencetracker
+
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -14,19 +15,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.example.practice.newexpencetracker.ui.theme.NewExpencetrackerTheme
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
+import com.example.practice.newexpencetracker.ui.theme.NewExpencetrackerTheme
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
@@ -45,9 +46,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// 🔹 We no longer need a Screen.SheetDetail here, because
+//    each month’s detailed view is now in a separate Activity (SheetActivity).
 sealed class Screen {
     object SheetsList : Screen()
-    data class SheetDetail(val sheet: ExpenseSheet) : Screen()
     object CreateSheet : Screen()
 }
 
@@ -99,22 +101,15 @@ fun ExpenseTrackerApp(modifier: Modifier = Modifier) {
         }
     ) { innerPadding ->
         Surface(modifier = modifier.padding(innerPadding)) {
-            when (val s = currentScreen) {
+            when (currentScreen) {
                 is Screen.SheetsList -> SheetsList(
                     sheets = sheets,
-                    onSheetClick = { sheet ->
-                        currentScreen = Screen.SheetDetail(sheet)
-                    },
+                    // 🔹 onSheetClick removed – SheetsList now starts SheetActivity itself
                     onDeleteSheet = { sheet ->
                         val db = database(context)
-                        db.deleteSheet(sheet.id)   // ✅ delete from DB
-                        sheets.remove(sheet)        // ✅ remove from in-memory list
+                        db.deleteSheet(sheet.id)   // delete from DB
+                        sheets.remove(sheet)        // remove from in-memory list
                     }
-                )
-
-                is Screen.SheetDetail -> SheetDetailScreen(
-                    sheet = s.sheet,
-                    onBack = { currentScreen = Screen.SheetsList }
                 )
 
                 is Screen.CreateSheet -> CreateSheetScreen(

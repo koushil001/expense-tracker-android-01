@@ -12,11 +12,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.NewExpencetracker">
 
-        <!-- New chart activity (no launcher, internal only) -->
+        <!-- Chart activity (internal only) -->
         <activity
             android:name=".ChartActivity"
             android:exported="false" />
 
+        <!-- New sheet detail activity (one per month) -->
+        <activity
+            android:name=".SheetActivity"
+            android:exported="false" />
+
+        <!-- Main launcher activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -24,7 +30,6 @@
             android:theme="@style/Theme.NewExpencetracker">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

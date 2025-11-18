@@ -517,9 +517,10 @@ fun SheetDetailScreen(sheet: ExpenseSheet, onBack: () -> Unit) {
 @Composable
 fun SheetsList(
     sheets: List<ExpenseSheet>,
-    onSheetClick: (ExpenseSheet) -> Unit,
     onDeleteSheet: (ExpenseSheet) -> Unit
 ) {
+    val context = LocalContext.current
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -537,8 +538,15 @@ fun SheetsList(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 6.dp)
-                    // ✅ tap anywhere on the card (except bin) to open the sheet
-                    .clickable { onSheetClick(sheet) },
+                    // ✅ Tap card to open that month in a NEW activity
+                    .clickable {
+                        val intent = android.content.Intent(
+                            context,
+                            SheetActivity::class.java
+                        )
+                        intent.putExtra("sheet_id", sheet.id)
+                        context.startActivity(intent)
+                    },
                 elevation = CardDefaults.cardElevation(6.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -574,7 +582,6 @@ fun SheetsList(
         }
     }
 }
-
 
 
 @RequiresApi(Build.VERSION_CODES.O)

@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
 class database(context: Context) :
-    SQLiteOpenHelper(context, "expense_tracker.db", null, 3) {   // ⬅ bumped version to 3
+    SQLiteOpenHelper(context, "expense_tracker.db", null, 3) {   // ⬅ version 3
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -64,6 +64,30 @@ class database(context: Context) :
             }
         }
         return result
+    }
+
+    // 🔹 NEW: Get a single sheet (one month) with its expenses
+    fun getSheetWithExpenses(sheetId: Int): ExpenseSheet? {
+        val db = readableDatabase
+
+        val cursor = db.rawQuery(
+            "SELECT id, month, year, income FROM sheets WHERE id = ?",
+            arrayOf(sheetId.toString())
+        )
+
+        cursor.use {
+            if (it.moveToFirst()) {
+                val id = it.getInt(0)
+                val month = it.getString(1)
+                val year = it.getInt(2)
+                val income = it.getDouble(3)
+
+                val sheet = ExpenseSheet(id, month, year, income)
+                sheet.expenses.addAll(getExpensesForSheet(id))
+                return sheet
+            }
+        }
+        return null
     }
 
     private fun getExpensesForSheet(sheetId: Int): List<Expense> {
@@ -125,8 +149,6 @@ class database(context: Context) :
         db.update("sheets", values, "id = ?", arrayOf(sheetId.toString()))
     }
 
-
-
     fun updateSheet(sheetId: Int, newMonth: String, newYear: Int) {
         val db = writableDatabase
         val values = ContentValues().apply {
@@ -135,7 +157,6 @@ class database(context: Context) :
         }
         db.update("sheets", values, "id = ?", arrayOf(sheetId.toString()))
     }
-
 
     // ---------- EXPENSES CRUD ----------
 
