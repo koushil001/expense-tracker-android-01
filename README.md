@@ -70,18 +70,6 @@ git clone https://github.com/koushil001/expense-tracker-android.git
 
 ---
 
-## 📈 Git History
-
-This project was built iteratively over one week with meaningful commits at each feature milestone:
-
-- Database integration with SQLite
-- Add, edit, delete expense functionality
-- Interactive monthly chart with drag support
-- Monthly sheet navigation
-- Real-time expense updates
-
----
-
 ## 👨‍💻 About
 
 Built by **Koushil Muthyala** as part of my MSc in Computing Science at Griffith College Dublin.
