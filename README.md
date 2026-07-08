@@ -6,7 +6,7 @@ An Android application built with **Kotlin and Jetpack Compose** for tracking pe
 
 ## 📱 Screenshots
 
-> Add screenshots of your app here after uploading them
+<img width="273" height="603" alt="image" src="https://github.com/user-attachments/assets/05313cea-a013-43f0-967f-f41fd2755def" />
 
 ---
 
